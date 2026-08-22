@@ -5,14 +5,14 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from sklearn.preprocessing import MultiLabelBinarizer
 
 # ================================================================
-# Neo4j connection
+# 1️⃣ Neo4j connection
 # ================================================================
 URI = "bolt://localhost:7687"
 AUTH = ("", "") # adjust this part
 driver = GraphDatabase.driver(URI, auth=AUTH)
 
 # ================================================================
-#  Load CSV
+# 2️⃣ Load CSV
 # ================================================================
 csv_path = "incorrect_predictions_with_fallback-fine-2021.csv"
 df = pd.read_csv(csv_path)
@@ -25,10 +25,10 @@ for col in required_cols:
 if "Fallback_Result" not in df.columns:
     df["Fallback_Result"] = None
 
-print(f" ok Loaded {len(df)} rows from {csv_path}")
+print(f"✅ Loaded {len(df)} rows from {csv_path}")
 
 # ================================================================
-# Helper: run Cypher safely
+# 3️⃣ Helper: run Cypher safely
 # ================================================================
 def run_cypher_safely(tx, query):
     """Run a Cypher query and return results or [] if invalid."""
@@ -37,28 +37,80 @@ def run_cypher_safely(tx, query):
         return [dict(r) for r in result] if result else []
     except Exception as e:
         # Uncomment for debugging
-        # print(f" Query failed: {e}")
+        # print(f"⚠️ Query failed: {e}")
         return []
 
 # ================================================================
-#  Helper: extract unique CWE IDs
+# 4️⃣ Helper: extract normalized entity identifiers
 # ================================================================
-def extract_cwe_ids(records):
-    """Extract unique CWE IDs from Neo4j query results."""
-    cwe_ids = set()
+ENTITY_ID_PROPERTIES = {
+    "CVE": ("cve_id",),
+    "Product": ("product_id", "name"),
+    "CWE": ("cwe_id",),
+    "CWEDetection": ("detection_id", "name"),
+    "CWEConsequence": ("consequence_id", "name"),
+    "CWEMitigation": ("mitigation_id", "name"),
+    "CWEModeOfIntroduction": ("introduction_id", "phase"),
+    "CAPEC": ("capec_id",),
+    "CAPECConsequence": ("consequence_id", "name"),
+    "Attack": ("attackstep_id", "attackStep"),
+    "Technique": ("technique_id", "name"),
+    "Tactic": ("tactic_id", "name"),
+    "Mitigation": ("mitigation_id", "name"),
+    "Campaign": ("campaign_id", "name"),
+    "Asset": ("asset_id", "name"),
+    "Malware": ("malware_id", "name"),
+    "Zone": ("id", "code", "name"),
+    "Group": ("group_id", "name"),
+    "Target": ("name",),
+    "CPE": ("id", "name"),
+}
+
+FALLBACK_ID_PROPERTIES = (
+    "cve_id", "cwe_id", "capec_id", "technique_id", "tactic_id",
+    "mitigation_id", "malware_id", "campaign_id", "group_id",
+    "product_id", "asset_id", "attackstep_id", "detection_id",
+    "consequence_id", "introduction_id", "id", "code", "name",
+)
+
+
+def normalize_result_value(value):
+    """Return stable identifiers from Neo4j nodes, mappings, lists, or scalars."""
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [item for nested in value for item in normalize_result_value(nested)]
+    if isinstance(value, (str, int, float, bool)):
+        return [str(value)]
+
+    labels = set(getattr(value, "labels", []))
+    try:
+        properties = dict(value.items())
+    except (AttributeError, TypeError, ValueError):
+        properties = value if isinstance(value, dict) else {}
+
+    preferred_properties = []
+    for label in sorted(labels):
+        preferred_properties.extend(ENTITY_ID_PROPERTIES.get(label, ()))
+    preferred_properties.extend(FALLBACK_ID_PROPERTIES)
+
+    for property_name in dict.fromkeys(preferred_properties):
+        property_value = properties.get(property_name)
+        if property_value not in (None, ""):
+            return [str(property_value)]
+    return []
+
+
+def extract_entity_ids(records):
+    """Extract unique normalized entity identifiers from Neo4j records."""
+    entity_ids = set()
     for record in records:
-        for key, val in record.items():
-            try:
-                if hasattr(val, "get") and "cwe_id" in val:
-                    cwe_ids.add(val["cwe_id"].upper())
-                elif isinstance(val, dict) and "cwe_id" in val:
-                    cwe_ids.add(val["cwe_id"].upper())
-            except Exception:
-                continue
-    return sorted(cwe_ids)
+        for value in record.values():
+            entity_ids.update(normalize_result_value(value))
+    return sorted(entity_ids, key=str.casefold)
 
 # ================================================================
-#  Execute Fallback Cyphers
+# 5️⃣ Execute Fallback Cyphers
 # ================================================================
 predictions = []
 contain_pred = []  # lenient (contains ground truth)
@@ -74,16 +126,16 @@ with driver.session() as session:
             continue
 
         results = session.execute_read(run_cypher_safely, cypher_query)
-        unique_cwe = extract_cwe_ids(results)
-        df.at[idx, "Fallback_Result"] = unique_cwe
-        predictions.append(unique_cwe)
+        entity_ids = extract_entity_ids(results)
+        df.at[idx, "Fallback_Result"] = entity_ids
+        predictions.append(entity_ids)
         # break
-        print(f" ok Processed {idx+1}/{len(df)} | CWE: {unique_cwe}")
+        print(f"✅ Processed {idx+1}/{len(df)} | Entity IDs: {entity_ids}")
 
 driver.close()
 
 # ================================================================
-#  Evaluation
+# 6️⃣ Evaluation
 # ================================================================
 true_labels = [[str(answer).strip().upper()] for answer in df["Answer"]]
 predicted_labels = [
