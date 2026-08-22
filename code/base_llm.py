@@ -1,5 +1,7 @@
 from unsloth import FastLanguageModel
 from transformers import AutoTokenizer
+import argparse
+from pathlib import Path
 import re
 import pandas as pd
 import unicodedata
@@ -192,75 +194,101 @@ Rules:
 
 """
 
-input_file = "cti-ate-questions.csv"
-df = pd.read_csv(input_file)
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Generate ontology-constrained Cypher queries for CSV questions."
+    )
+    parser.add_argument(
+        "--input",
+        required=True,
+        help="Input CSV containing a Question column.",
+    )
+    parser.add_argument(
+        "--output",
+        required=True,
+        help="Output CSV for questions and generated Cypher queries.",
+    )
+    parser.add_argument(
+        "--save-interval",
+        type=int,
+        default=15,
+        help="Save progress after this many processed rows (default: 15).",
+    )
+    return parser.parse_args()
 
-if "Generated_Cypher" not in df.columns:
-    df["Generated_Cypher"] = ""
-# Make sure we have 'Question' column
-if "Question" not in df.columns:
-    raise ValueError("❌ CSV must have a 'Question' column.")
 
-
-# ==============================
-# 5. Inference loop
-# ==============================
-outputs = []
-save_interval = 15  # Save every 35 rows
-for idx, row in df.iterrows():
-    # question = row["Question"]
-    question = "Which product is related to CVE-2024-30051?"
+def generate_cypher(question: str) -> list[str]:
     cypher_prompt = f"""{instruction}
 
-        ### Schema:
-        {schema}
+### Schema:
+{schema}
 
-        ### Question:
-        {question}
+### Question:
+{question}
 
-        ### Cypher:
-        """
+### Cypher:
+"""
 
     inputs = tokenizer(
         cypher_prompt,
         return_tensors="pt",
         truncation=True,
-        max_length=4096
+        max_length=4096,
     ).to(device)
 
-    gen_kwargs = dict(
-        do_sample=False,
-        num_beams=1,
-        max_new_tokens=512,
-        early_stopping=True,
-        use_cache=True,
-    )
-
     with torch.no_grad():
-        output = model.generate(**inputs, **gen_kwargs)
+        output = model.generate(
+            **inputs,
+            do_sample=False,
+            num_beams=1,
+            max_new_tokens=512,
+            use_cache=True,
+        )
 
     decoded = tokenizer.decode(output[0], skip_special_tokens=True)
-
-    cypher_text = extract_all_cypher_blocks(decoded)
-    cypher_text = [clean_repeated_cypher(block) for block in cypher_text if isinstance(block, str) and block.strip()]
-
-    outputs.append(cypher_text)
-    df.at[idx, "Generated_Cypher"] = cypher_text
-    print(cypher_text)
-    break
-    print(f"✅ Processed {idx + 1}/{len(df)}")
-    # Save every 5 rows processed
-    if (idx + 1) % save_interval == 0:
-        partial_file = f"cypher/cti-ate-questions-cypher-2021-part-{(idx + 1)//save_interval}.csv"
-        df.iloc[: idx + 1].to_csv(partial_file, index=False)
-        print(f"💾 Progress saved to {partial_file}")
+    blocks = extract_all_cypher_blocks(decoded)
+    return [
+        clean_repeated_cypher(block)
+        for block in blocks
+        if isinstance(block, str) and block.strip()
+    ]
 
 
-# ==============================
-# 6. Save to CSV
-# ==============================
-# df["Generated_Cypher"] = outputs
-# output_file = "cti-ate-questions-cypher-2021.csv"
-# df.to_csv(output_file, index=False)
+def main():
+    args = parse_args()
+    if args.save_interval < 1:
+        raise ValueError("--save-interval must be at least 1.")
 
-# print(f"\n🎉 All done! Saved full file to {output_file}")
+    input_path = Path(args.input)
+    output_path = Path(args.output)
+    if not input_path.is_file():
+        raise FileNotFoundError(f"Input CSV not found: {input_path}")
+
+    df = pd.read_csv(input_path)
+    if "Question" not in df.columns:
+        raise ValueError("CSV must have a 'Question' column.")
+    if "Generated_Cypher" not in df.columns:
+        df["Generated_Cypher"] = ""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    for position, (idx, row) in enumerate(df.iterrows(), start=1):
+        question = row["Question"]
+        if not isinstance(question, str) or not question.strip():
+            df.at[idx, "Generated_Cypher"] = []
+            print(f"Skipped {position}/{len(df)}: empty question")
+        else:
+            cypher_queries = generate_cypher(question.strip())
+            df.at[idx, "Generated_Cypher"] = repr(cypher_queries)
+            print(f"Processed {position}/{len(df)}")
+
+        if position % args.save_interval == 0:
+            df.to_csv(output_path, index=False)
+            print(f"Progress saved to {output_path}")
+
+    df.to_csv(output_path, index=False)
+    print(f"Completed {len(df)} questions. Results saved to {output_path}")
+
+
+if __name__ == "__main__":
+    main()
