@@ -1,6 +1,8 @@
 import pandas as pd
 import ast
+import numpy as np
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.preprocessing import MultiLabelBinarizer
 
 # === Load both CSVs ===
 main_df = pd.read_csv("cti-rcm-fine-results-2021.csv")
@@ -34,32 +36,34 @@ for _, row in fallback_df.iterrows():
 
 print(f"✅ Replaced {replaced_rows} rows with fallback results.\n")
 
-# === Compute metrics ===
-contain_true, contain_pred = [], []
-exact_true, exact_pred = [], []
+# === Prepare ground-truth and predicted CWE label sets ===
+true_labels, predicted_labels = [], []
+containment_matches, exact_matches = [], []
 
 for _, row in final_df.iterrows():
     gt = str(row["Answer"]).strip().upper()
     preds = [str(p).strip().upper() for p in row["Cypher_Results"]]
 
-    contain_true.append(1)
-    exact_true.append(1)
+    true_labels.append([gt])
+    predicted_labels.append(preds)
+    containment_matches.append(gt in preds)
+    exact_matches.append(preds == [gt])
 
-    contain_pred.append(1 if gt in preds else 0)
-    exact_pred.append(1 if preds == [gt] else 0)
+all_classes = sorted({label for labels in true_labels + predicted_labels for label in labels})
+mlb = MultiLabelBinarizer(classes=all_classes)
+mlb.fit([all_classes])
+y_true = mlb.transform(true_labels)
+y_pred = mlb.transform(predicted_labels)
 
-# === Helper to print metrics ===
-def print_metrics(title, y_true, y_pred):
-    acc = accuracy_score(y_true, y_pred)
-    prec = precision_score(y_true, y_pred, zero_division=0)
-    rec = recall_score(y_true, y_pred, zero_division=0)
-    f1 = f1_score(y_true, y_pred, zero_division=0)
-    print(f"=== {title} ===")
-    print(f"Accuracy : {acc:.4f}")
-    print(f"Precision: {prec:.4f}")
-    print(f"Recall   : {rec:.4f}")
-    print(f"F1-score : {f1:.4f}\n")
-
-# === Run evaluation ===
-print_metrics("Contain Version (lenient, merged fallback)", contain_true, contain_pred)
-print_metrics("Exact Match Version (strict, merged fallback)", exact_true, exact_pred)
+print("=== CWE prediction metrics with embedding fallback ===")
+print(f"Subset accuracy       : {accuracy_score(y_true, y_pred):.4f}")
+print(f"Micro precision       : {precision_score(y_true, y_pred, average='micro', zero_division=0):.4f}")
+print(f"Micro recall          : {recall_score(y_true, y_pred, average='micro', zero_division=0):.4f}")
+print(f"Micro F1-score        : {f1_score(y_true, y_pred, average='micro', zero_division=0):.4f}")
+print(f"Macro precision       : {precision_score(y_true, y_pred, average='macro', zero_division=0):.4f}")
+print(f"Macro recall          : {recall_score(y_true, y_pred, average='macro', zero_division=0):.4f}")
+print(f"Macro F1-score        : {f1_score(y_true, y_pred, average='macro', zero_division=0):.4f}")
+print(f"Containment accuracy  : {np.mean(containment_matches):.4f}")
+print(f"Strict exact accuracy : {np.mean(exact_matches):.4f}")
+print(f"Empty-result rate     : {np.mean([len(p) == 0 for p in predicted_labels]):.4f}")
+print(f"Multi-result rate     : {np.mean([len(p) > 1 for p in predicted_labels]):.4f}")
