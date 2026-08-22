@@ -5,14 +5,14 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 from sklearn.preprocessing import MultiLabelBinarizer
 
 # ================================================================
-# 1️⃣ Neo4j connection
+# Neo4j connection
 # ================================================================
 URI = "bolt://localhost:7687"
 AUTH = ("", "") # adjust this part
 driver = GraphDatabase.driver(URI, auth=AUTH)
 
 # ================================================================
-# 2️⃣ Load CSV
+#  Load CSV
 # ================================================================
 csv_path = "incorrect_predictions_with_fallback-fine-2021.csv"
 df = pd.read_csv(csv_path)
@@ -25,10 +25,10 @@ for col in required_cols:
 if "Fallback_Result" not in df.columns:
     df["Fallback_Result"] = None
 
-print(f"✅ Loaded {len(df)} rows from {csv_path}")
+print(f" ok Loaded {len(df)} rows from {csv_path}")
 
 # ================================================================
-# 3️⃣ Helper: run Cypher safely
+# Helper: run Cypher safely
 # ================================================================
 def run_cypher_safely(tx, query):
     """Run a Cypher query and return results or [] if invalid."""
@@ -37,11 +37,11 @@ def run_cypher_safely(tx, query):
         return [dict(r) for r in result] if result else []
     except Exception as e:
         # Uncomment for debugging
-        # print(f"⚠️ Query failed: {e}")
+        # print(f" Query failed: {e}")
         return []
 
 # ================================================================
-# 4️⃣ Helper: extract unique CWE IDs
+#  Helper: extract unique CWE IDs
 # ================================================================
 def extract_cwe_ids(records):
     """Extract unique CWE IDs from Neo4j query results."""
@@ -58,7 +58,7 @@ def extract_cwe_ids(records):
     return sorted(cwe_ids)
 
 # ================================================================
-# 5️⃣ Execute Fallback Cyphers
+#  Execute Fallback Cyphers
 # ================================================================
 predictions = []
 contain_pred = []  # lenient (contains ground truth)
@@ -78,12 +78,12 @@ with driver.session() as session:
         df.at[idx, "Fallback_Result"] = unique_cwe
         predictions.append(unique_cwe)
         # break
-        print(f"✅ Processed {idx+1}/{len(df)} | CWE: {unique_cwe}")
+        print(f" ok Processed {idx+1}/{len(df)} | CWE: {unique_cwe}")
 
 driver.close()
 
 # ================================================================
-# 6️⃣ Evaluation
+#  Evaluation
 # ================================================================
 true_labels = [[str(answer).strip().upper()] for answer in df["Answer"]]
 predicted_labels = [
