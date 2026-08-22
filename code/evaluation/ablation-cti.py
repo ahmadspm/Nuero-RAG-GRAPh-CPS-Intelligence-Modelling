@@ -1,6 +1,8 @@
 import pandas as pd
 import ast
+import numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_score
+from sklearn.preprocessing import MultiLabelBinarizer
 
 # === Load CSV ===
 df = pd.read_csv("cti-rcm-fine-results-2021.csv")
@@ -10,23 +12,19 @@ df["Cypher_Results"] = df["Cypher_Results"].apply(
     lambda x: ast.literal_eval(x) if isinstance(x, str) else []
 )
 
-# Prepare binary labels for both evaluation types
-contain_true, contain_pred = [], []
-exact_true, exact_pred = [], []
+# Prepare ground-truth and predicted CWE label sets
+true_labels, predicted_labels = [], []
+containment_matches, exact_matches = [], []
 wrong_rows = []  # collect rows with wrong or multiple predictions
 
 for idx, row in df.iterrows():
     gt = str(row["Answer"]).strip()
     preds = [str(p).strip() for p in row["Cypher_Results"]]
 
-    contain_true.append(1)
-    exact_true.append(1)
-
-    # Containment version
-    contain_pred.append(1 if gt in preds else 0)
-
-    # Exact-match version
-    exact_pred.append(1 if preds == [gt] else 0)
+    true_labels.append([gt])
+    predicted_labels.append(preds)
+    containment_matches.append(gt in preds)
+    exact_matches.append(preds == [gt])
 
     # Identify incorrect, multi-result, or empty predictions
     if (gt not in preds) or (len(preds) != 1):
@@ -39,21 +37,24 @@ for idx, row in df.iterrows():
             "Num_Predicted": len(preds)
         })
 
-def print_metrics(title, y_true, y_pred):
-    accuracy = accuracy_score(y_true, y_pred)
-    precision = precision_score(y_true, y_pred, zero_division=0)
-    recall = recall_score(y_true, y_pred, zero_division=0)
-    f1 = f1_score(y_true, y_pred, zero_division=0)
+all_classes = sorted({label for labels in true_labels + predicted_labels for label in labels})
+mlb = MultiLabelBinarizer(classes=all_classes)
+mlb.fit([all_classes])
+y_true = mlb.transform(true_labels)
+y_pred = mlb.transform(predicted_labels)
 
-    print(f"\n=== {title} ===")
-    print(f"Accuracy : {accuracy:.4f}")
-    print(f"Precision: {precision:.4f}")
-    print(f"Recall   : {recall:.4f}")
-    print(f"F1-score : {f1:.4f}")
-
-# Compute both sets of metrics
-print_metrics("Contain Version (lenient)", contain_true, contain_pred)
-print_metrics("Exact Match Version (strict)", exact_true, exact_pred)
+print("\n=== CWE prediction metrics ===")
+print(f"Subset accuracy       : {accuracy_score(y_true, y_pred):.4f}")
+print(f"Micro precision       : {precision_score(y_true, y_pred, average='micro', zero_division=0):.4f}")
+print(f"Micro recall          : {recall_score(y_true, y_pred, average='micro', zero_division=0):.4f}")
+print(f"Micro F1-score        : {f1_score(y_true, y_pred, average='micro', zero_division=0):.4f}")
+print(f"Macro precision       : {precision_score(y_true, y_pred, average='macro', zero_division=0):.4f}")
+print(f"Macro recall          : {recall_score(y_true, y_pred, average='macro', zero_division=0):.4f}")
+print(f"Macro F1-score        : {f1_score(y_true, y_pred, average='macro', zero_division=0):.4f}")
+print(f"Containment accuracy  : {np.mean(containment_matches):.4f}")
+print(f"Strict exact accuracy : {np.mean(exact_matches):.4f}")
+print(f"Empty-result rate     : {np.mean([len(p) == 0 for p in predicted_labels]):.4f}")
+print(f"Multi-result rate     : {np.mean([len(p) > 1 for p in predicted_labels]):.4f}")
 
 # Export wrong predictions to CSV (now with Question column)
 wrong_df = pd.DataFrame(wrong_rows)
