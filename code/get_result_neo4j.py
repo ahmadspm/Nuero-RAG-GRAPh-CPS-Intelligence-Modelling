@@ -33,21 +33,73 @@ def run_cypher_safely(tx, query):
         return []  # silently ignore invalid or failed queries
 
 # ==============================================
-# Helper: extract unique CWE IDs
+# Helper: extract normalized entity identifiers
 # ==============================================
-def extract_cwe_ids(records):
-    """Extract unique CWE IDs from Neo4j query results."""
-    cwe_ids = set()
+ENTITY_ID_PROPERTIES = {
+    "CVE": ("cve_id",),
+    "Product": ("product_id", "name"),
+    "CWE": ("cwe_id",),
+    "CWEDetection": ("detection_id", "name"),
+    "CWEConsequence": ("consequence_id", "name"),
+    "CWEMitigation": ("mitigation_id", "name"),
+    "CWEModeOfIntroduction": ("introduction_id", "phase"),
+    "CAPEC": ("capec_id",),
+    "CAPECConsequence": ("consequence_id", "name"),
+    "Attack": ("attackstep_id", "attackStep"),
+    "Technique": ("technique_id", "name"),
+    "Tactic": ("tactic_id", "name"),
+    "Mitigation": ("mitigation_id", "name"),
+    "Campaign": ("campaign_id", "name"),
+    "Asset": ("asset_id", "name"),
+    "Malware": ("malware_id", "name"),
+    "Zone": ("id", "code", "name"),
+    "Group": ("group_id", "name"),
+    "Target": ("name",),
+    "CPE": ("id", "name"),
+}
+
+FALLBACK_ID_PROPERTIES = (
+    "cve_id", "cwe_id", "capec_id", "technique_id", "tactic_id",
+    "mitigation_id", "malware_id", "campaign_id", "group_id",
+    "product_id", "asset_id", "attackstep_id", "detection_id",
+    "consequence_id", "introduction_id", "id", "code", "name",
+)
+
+
+def normalize_result_value(value):
+    """Return stable identifiers from Neo4j nodes, mappings, lists, or scalars."""
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return [item for nested in value for item in normalize_result_value(nested)]
+    if isinstance(value, (str, int, float, bool)):
+        return [str(value)]
+
+    labels = set(getattr(value, "labels", []))
+    try:
+        properties = dict(value.items())
+    except (AttributeError, TypeError, ValueError):
+        properties = value if isinstance(value, dict) else {}
+
+    preferred_properties = []
+    for label in sorted(labels):
+        preferred_properties.extend(ENTITY_ID_PROPERTIES.get(label, ()))
+    preferred_properties.extend(FALLBACK_ID_PROPERTIES)
+
+    for property_name in dict.fromkeys(preferred_properties):
+        property_value = properties.get(property_name)
+        if property_value not in (None, ""):
+            return [str(property_value)]
+    return []
+
+
+def extract_entity_ids(records):
+    """Extract unique normalized entity identifiers from Neo4j records."""
+    entity_ids = set()
     for record in records:
-        for key, val in record.items():
-            try:
-                if hasattr(val, "get") and "cwe_id" in val:
-                    cwe_ids.add(val["cwe_id"].upper())
-                elif isinstance(val, dict) and "cwe_id" in val:
-                    cwe_ids.add(val["cwe_id"].upper())
-            except Exception:
-                continue
-    return sorted(cwe_ids)
+        for value in record.values():
+            entity_ids.update(normalize_result_value(value))
+    return sorted(entity_ids, key=str.casefold)
 
 # ==============================================
 # Main loop
@@ -87,13 +139,13 @@ for idx, row in df.iterrows():
                 break
     
 
-    # Extract unique CWE IDs
-    unique_cwe_ids = extract_cwe_ids(all_records)
+    # Extract normalized IDs for any supported BRIDG-ICS entity type
+    entity_ids = extract_entity_ids(all_records)
 
-    df.at[idx, "Cypher_Results"] = unique_cwe_ids
+    df.at[idx, "Cypher_Results"] = entity_ids
     df.at[idx, "num_query"] = successful_queries
 
-    print(f" yes Processed {idx + 1}/{len(df)} | CWE IDs: {unique_cwe_ids} | Queries: {successful_queries}")
+    print(f"✅ Processed {idx + 1}/{len(df)} | Entity IDs: {entity_ids} | Queries: {successful_queries}")
 
     # Save progress every 10 rows
     if (idx + 1) % 10 == 0:
