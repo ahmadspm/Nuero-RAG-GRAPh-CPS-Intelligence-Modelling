@@ -1,6 +1,8 @@
 import pandas as pd
+import numpy as np
 from neo4j import GraphDatabase
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.preprocessing import MultiLabelBinarizer
 
 # ================================================================
 # 1️⃣ Neo4j connection
@@ -81,36 +83,40 @@ with driver.session() as session:
 driver.close()
 
 # ================================================================
-# 6️⃣ Evaluation (Contain vs Exact)
+# 6️⃣ Evaluation
 # ================================================================
-y_true = [str(a).strip().upper() for a in df["Answer"]]
-y_pred = [p for p in predictions]
+true_labels = [[str(answer).strip().upper()] for answer in df["Answer"]]
+predicted_labels = [
+    [str(prediction).strip().upper() for prediction in row_predictions]
+    for row_predictions in predictions
+]
+containment_matches = [
+    truth[0] in row_predictions
+    for truth, row_predictions in zip(true_labels, predicted_labels)
+]
+exact_matches = [
+    row_predictions == truth
+    for truth, row_predictions in zip(true_labels, predicted_labels)
+]
 
-contain_y_true, contain_y_pred = [], []
-exact_y_true, exact_y_pred = [], []
+all_classes = sorted({label for labels in true_labels + predicted_labels for label in labels})
+mlb = MultiLabelBinarizer(classes=all_classes)
+mlb.fit([all_classes])
+y_true = mlb.transform(true_labels)
+y_pred = mlb.transform(predicted_labels)
 
-for gt, preds in zip(y_true, y_pred):
-    contain_y_true.append(1)
-    exact_y_true.append(1)
-
-    contain_y_pred.append(1 if gt in preds else 0)
-    exact_y_pred.append(1 if preds == [gt] else 0)
-
-# Compute metrics
-def print_metrics(title, y_true, y_pred):
-    acc = accuracy_score(y_true, y_pred)
-    prec = precision_score(y_true, y_pred, zero_division=0)
-    rec = recall_score(y_true, y_pred, zero_division=0)
-    f1 = f1_score(y_true, y_pred, zero_division=0)
-
-    print(f"\n=== {title} ===")
-    print(f"Accuracy : {acc:.4f}")
-    print(f"Precision: {prec:.4f}")
-    print(f"Recall   : {rec:.4f}")
-    print(f"F1-score : {f1:.4f}")
-
-print_metrics("Contain Version (lenient)", contain_y_true, contain_y_pred)
-print_metrics("Exact Match Version (strict)", exact_y_true, exact_y_pred)
+print("\n=== CWE prediction metrics with embedding fallback ===")
+print(f"Subset accuracy       : {accuracy_score(y_true, y_pred):.4f}")
+print(f"Micro precision       : {precision_score(y_true, y_pred, average='micro', zero_division=0):.4f}")
+print(f"Micro recall          : {recall_score(y_true, y_pred, average='micro', zero_division=0):.4f}")
+print(f"Micro F1-score        : {f1_score(y_true, y_pred, average='micro', zero_division=0):.4f}")
+print(f"Macro precision       : {precision_score(y_true, y_pred, average='macro', zero_division=0):.4f}")
+print(f"Macro recall          : {recall_score(y_true, y_pred, average='macro', zero_division=0):.4f}")
+print(f"Macro F1-score        : {f1_score(y_true, y_pred, average='macro', zero_division=0):.4f}")
+print(f"Containment accuracy  : {np.mean(containment_matches):.4f}")
+print(f"Strict exact accuracy : {np.mean(exact_matches):.4f}")
+print(f"Empty-result rate     : {np.mean([len(p) == 0 for p in predicted_labels]):.4f}")
+print(f"Multi-result rate     : {np.mean([len(p) > 1 for p in predicted_labels]):.4f}")
 
 # ================================================================
 # 7️⃣ Save Results
