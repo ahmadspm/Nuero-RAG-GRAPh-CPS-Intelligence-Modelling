@@ -93,7 +93,7 @@ for idx, row in df.iterrows():
     df.at[idx, "Cypher_Results"] = unique_cwe_ids
     df.at[idx, "num_query"] = successful_queries
 
-    print(f"✅ Processed {idx + 1}/{len(df)} | CWE IDs: {unique_cwe_ids} | Queries: {successful_queries}")
+    print(f" yes Processed {idx + 1}/{len(df)} | CWE IDs: {unique_cwe_ids} | Queries: {successful_queries}")
 
     # Save progress every 10 rows
     if (idx + 1) % 10 == 0:
