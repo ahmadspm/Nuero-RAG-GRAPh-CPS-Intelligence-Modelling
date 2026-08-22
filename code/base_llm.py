@@ -143,7 +143,7 @@ Rules:
     Example:
       Schema: (:CVE)-[:HAS_CWE]->(:CWE)
       Question: "What is the CVE of CWE-200?"
-      ✅ MATCH (cve:CVE)-[:HAS_CWE]->(cwe:CWE)
+       MATCH (cve:CVE)-[:HAS_CWE]->(cwe:CWE)
          WHERE toLower(cwe.cwe_id) CONTAINS toLower("cwe-200")
          RETURN cve
 
