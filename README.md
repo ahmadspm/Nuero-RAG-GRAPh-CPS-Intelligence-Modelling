@@ -1,5 +1,8 @@
 # GRICS: Graph-Integrated Cybersecurity Intelligence for Advanced Manufacturing
 
+Nandiya, P., Mohsin, A., Sarker, I. H., Ibrahim, A., & Janicke, H. (2026). NeuroGraph: An AI graph-driven neuro-symbolic framework for explainable threat reasoning in advanced manufacturing. Manuscript.
+
+
 This repository contains **GRICS (Graph-Integrated Retrieval for Industry-Centric Security)** — a knowledge-graph-aware framework for explainable cyber threat reasoning in Industry 5.0 environments.
 
 ---
