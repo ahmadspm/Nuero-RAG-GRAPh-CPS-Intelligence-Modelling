@@ -123,12 +123,15 @@ Supports **human-in-the-loop cybersecurity workflows** aligned with Industry 5.0
 
 ## Citation
 
-If you use this work, please cite:
+If you use this repository or the GRICS/NeuroGraph framework in your research, please cite:
+
+> Nandiya, P., Mohsin, A., Sarker, I. H., Ibrahim, A., & Janicke, H. (2026). *NeuroGraph: An AI graph-driven neuro-symbolic framework for explainable threat reasoning in advanced manufacturing*. Manuscript.
 
 ```bibtex
-@article{GRICS2025,
-  title={GRICS: A Human–AI Collaborative Knowledge-Graph Framework for Threat Reasoning in Advanced Manufacturing Systems},
-  author={Nandiya, P. and Mohsin, A. and Sarker, I.H. and Ibrahim, A. and Janicke, H.},
-  journal={IEEE},
-  year={2026}
+@unpublished{nandiya2026neurograph,
+  author = {Nandiya, Padmeswari and Mohsin, Ahmad and Sarker, Iqbal H. and Ibrahim, Ahmed and Janicke, Helge},
+  title  = {NeuroGraph: An AI Graph-Driven Neuro-Symbolic Framework for Explainable Threat Reasoning in Advanced Manufacturing},
+  year   = {2026},
+  note   = {Manuscript}
 }
+```
