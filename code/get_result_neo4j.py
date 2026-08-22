@@ -84,7 +84,7 @@ for idx, row in df.iterrows():
             if results:
                 all_records.extend(results)
                 successful_queries.append(i)
-            break
+                break
     
 
     # Extract unique CWE IDs
