@@ -1,0 +1,32 @@
+[
+  {
+    "_note": "Illustrative — taken from a real GRICS run.",
+    "question": "Which technique used by group Cleaver via Malware TinyZBot?",
+    "generated_cypher": [
+      "MATCH (g:Group)-[:USE_MALWARE]->(m:Malware)-[:USE_TECHNIQUE]->(t:Technique) WHERE toLower(g.name) CONTAINS toLower('Cleaver') AND toLower(m.name) CONTAINS toLower('TinyZBot') RETURN t"
+    ],
+    "reasoning_path": ["Group", "Malware", "Technique"],
+    "retrieved_evidence": [
+      "T1547.001", "T1115", "T1113", "T1543.003",
+      "T1547.009", "T1562.001", "T1059.003", "T1056.001"
+    ],
+    "answer": "The techniques used by Which technique used by group Cleaver via Malware TinyZBot are:\n- T1547.001 — Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder\n- T1115 — Clipboard Data\n- T1113 — Screen Capture\n- T1543.003 — Create or Modify System Process: Windows Service\n- T1547.009 — Boot or Logon Autostart Execution: Shortcut Modification\n- T1562.001 — Impair Defenses: Disable or Modify Tools\n- T1059.003 — Command and Scripting Interpreter: Windows Command Shell\n- T1056.001 — Input Capture: Keylogging\n\nSummary: The data outlines various cybersecurity techniques and vulnerabilities. Techniques like boot or logon autostart execution, command and scripting interpreter, and input capture are used for various purposes such as creating or modifying system processes, disabling or modifying tools, and keylogging. These techniques can be exploited by attackers to compromise systems and gain unauthorized access to data. The data also mentions mitigations like defending against impairment of defenses and disabling or modifying tools to prevent unauthorized access and data breaches."
+  },
+  {
+    "_note": "Illustrative — taken from a real GRICS run.",
+    "question": "Find mitigations for CVE-2025-9492?",
+    "generated_cypher": [
+      "MATCH (cve:CVE)-[:HAS_CWE]->(cwe:CWE)-[:HAS_CAPEC]->(capec:CAPEC)-[:HAS_TECHNIQUE]->(t:Technique)<-[:MITIGATES]-(m:Mitigation) WHERE toLower(cve.cve_id) CONTAINS toLower('CVE-2025-9492') RETURN m",
+      "MATCH (cve:CVE)-[:HAS_CWE]->(cwe:CWE)-[:HAS_CWE_MITIGATION]->(m:CWEMitigation) WHERE toLower(cve.cve_id) CONTAINS toLower('CVE-2025-9492') RETURN m",
+      "MATCH (cve:CVE)-[:HAS_POSSIBLE_TECHNIQUE]->(t:Technique)<-[:MITIGATES]-(m:Mitigation) WHERE toLower(cve.cve_id) CONTAINS toLower('CVE-2025-9492') RETURN m"
+    ],
+    "reasoning_path": ["CVE", "CWE", "CAPEC", "Technique", "Mitigation"],
+    "retrieved_evidence": [
+      "M1040", "M1017", "M1028", "M1039", "M1038", "M1049", "M1022", "M1047",
+      "74d6e318756", "74d6e318763", "89d6e363077", "89d6e363091", "89d6e363105",
+      "89d6e363121", "89d6e363128", "89d6e363143", "89d6e363166", "89d6e363175",
+      "89d6e363191", "89d6e363204"
+    ],
+    "answer": "The mitigations for CVE-2025-9492 are:\n- M1040 — Behavior Prevention on Endpoint\n- M1017 — User Training\n- M1028 — Operating System Configuration\n- M1039 — Environment Variable Permissions\n- M1038 — Execution Prevention\n- M1049 — Antivirus/Antimalware\n- M1022 — Restrict File and Directory Permissions\n- M1047 — Audit\n\nIt also has CWE mitigations:\n- 74d6e318756 — Requirements\n- 74d6e318763 — Implementation\n- 89d6e363077 — Architecture and Design\n- 89d6e363091 — Architecture and Design\n- 89d6e363105 — Operation\n- 89d6e363121 — Architecture and Design\n- 89d6e363128 — Implementation\n- 89d6e363143 — Implementation\n- 89d6e363166 — Architecture and Design\n- 89d6e363175 — Implementation\n- 89d6e363191 — Operation\n- 89d6e363204 — Implementation\n\nSummary: The data outlines mitigations for CVE-2025-9492 which include a range of security controls like Behavior Prevention on Endpoint, User Training, and Operating System Configuration. These controls are designed to prevent unauthorized access, data theft, and other cyber threats. The mitigations are part of a comprehensive security framework that aims to protect against various cyber threats."
+  }
+]
