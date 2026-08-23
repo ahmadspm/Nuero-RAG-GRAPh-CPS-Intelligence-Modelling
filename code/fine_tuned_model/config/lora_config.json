@@ -1,0 +1,25 @@
+{
+  "base_model": "Azzedde/llama3.1-8b-text2cypher",
+  "train_file": "finetune_data.json",
+  "output_dir": "cypher-llama3.1-finetuned",
+  "lora": {
+    "r": 8,
+    "lora_alpha": 32,
+    "target_modules": ["q_proj", "v_proj"],
+    "lora_dropout": 0.05,
+    "bias": "none",
+    "task_type": "CAUSAL_LM"
+  },
+  "training": {
+    "max_length": 2048,
+    "micro_batch_size": 1,
+    "gradient_accumulation_steps": 8,
+    "epochs": 3,
+    "learning_rate": 2e-4,
+    "weight_decay": 0.0,
+    "save_total_limit": 3,
+    "logging_steps": 25,
+    "save_steps": 200,
+    "seed": 42
+  }
+}
