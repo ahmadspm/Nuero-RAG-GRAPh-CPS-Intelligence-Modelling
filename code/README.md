@@ -4,7 +4,7 @@ GRICS is ready to use once the knowledge graph has been installed.
 
 Please note that the components of this project are not directly connected in real time, as the language model and the knowledge base are hosted on different devices.
 
-The outputs from `base_llm` and `llm_fine_tune` are generated Cypher queries, which are saved as CSV files. These CSV files are then imported into Neo4j for execution.
+The outputs from `base_llm` and `fine_tuned_model/llm_fine_tune` are generated Cypher queries, which are saved as CSV files. These CSV files are then imported into Neo4j for execution.
 
 If any generated queries fail to execute, they are stored separately. The corresponding questions are then processed using embeddings to identify similar nodes within the knowledge graph.
 
@@ -26,14 +26,16 @@ The script can:
 
 ---
 
-### `llm_fine_tune`
+### `fine_tuned_model` Folder
 
-This file is used to fine-tune the base model in order to:
+Contains `llm_fine_tune.py`, used to fine-tune the base model in order to:
 
 - Improve understanding of paraphrased questions  
 - Enhance the model’s ability to generate IT/OT-related queries requiring deeper contextual understanding  
 
 Running this file produces a fine-tuned model, which can also be downloaded from [model_link](https://drive.google.com/file/d/1b_6akH2ZQDOi6QzALJX4YFFYvqS5-FTB/view?usp=sharing)
+
+The folder also holds `config/lora_config.json` (training hyperparameters), `inference.py` (load the adapter and generate Cypher), `merge_adapter.py` (bake the adapter into the base weights for deployment), and `adapters/` (where trained checkpoints live). See [fine_tuned_model/README.md](fine_tuned_model/README.md).
 
 ---
 
@@ -74,6 +76,18 @@ https://drive.google.com/file/d/1Hp-KaMRLvAX8nXi3NtGkOWe3SZZjup98/view?usp=shari
 The `Evaluation` folder contains example scripts for benchmarking and testing both:
 
 - `base_llm`
-- `llm_fine_tune`
+- `fine_tuned_model/llm_fine_tune`
 
 These scripts are used to evaluate and compare model performance.
+
+---
+
+### `rag_graph_modelling` Folder
+
+Scripts for building the BRIDG-ICS-shaped knowledge graph from raw CTI data, for anyone constructing a new graph instead of using the pre-built one. See [rag_graph_modelling/README.md](rag_graph_modelling/README.md) for the full pipeline (preprocessing → ontology mapping → node/edge generation → Neo4j loading → embedding preparation).
+
+---
+
+### `explainability_analysis` Folder
+
+Turns a GRICS run into readable explainability examples: for each question, the generated Cypher, the reasoning path it traces through the graph, retrieved evidence, and the final answer — plus Hallucination Rate, Query Violation Rate, and Schema Consistency Rate metrics. See [explainability_analysis/README.md](explainability_analysis/README.md).
